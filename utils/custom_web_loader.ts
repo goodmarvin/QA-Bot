@@ -4,6 +4,32 @@ import { BaseDocumentLoader } from 'langchain/document_loaders';
 import type { DocumentLoader } from 'langchain/document_loaders';
 import { CheerioWebBaseLoader } from 'langchain/document_loaders';
 
+function findTitle($: CheerioAPI): string {
+  const titleCandidates = ['h1', 'h2', 'title'];
+
+  for (const candidate of titleCandidates) {
+    const title = $(candidate).first().text();
+    if (title.trim()) {
+      return title.trim();
+    }
+  }
+
+  return '';
+}
+
+function findContent($: CheerioAPI): string {
+  const contentCandidates = ['main', 'article', 'div', 'section'];
+
+  for (const candidate of contentCandidates) {
+    const content = $(candidate).first().text();
+    if (content.trim()) {
+      return content.trim();
+    }
+  }
+
+  return '';
+}
+
 export class CustomWebLoader
   extends BaseDocumentLoader
   implements DocumentLoader
@@ -25,18 +51,11 @@ export class CustomWebLoader
 
   async load(): Promise<Document[]> {
     const $ = await this.scrape();
-    const title = $('h1.entry-title').text();
+    const title = findTitle($);
     const date = $('meta[property="article:published_time"]').attr('content');
-
-    const content = $('.entry-content')
-      .clone()
-      .find('div.elementor, style')
-      .remove()
-      .end()
-      .text();
+    const content = findContent($);
 
     const cleanedContent = content.replace(/\s+/g, ' ').trim();
-
     const contentLength = cleanedContent?.match(/\b\w+\b/g)?.length ?? 0;
 
     const metadata = { source: this.webPath, title, date, contentLength };
